@@ -1,0 +1,11 @@
+name: "AB617-website"
+output_dir: "."
+navbar:
+  title: "AB 617 Timeseries Trends"
+  left:
+    - text: "Home"
+      href: index.html
+
+output:
+  html_document:
+    theme: cosmo

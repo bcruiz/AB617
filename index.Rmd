@@ -1,0 +1,714 @@
+---
+title: "AB 617"
+author: "Brandyn Ruiz"
+output: html_document
+---
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(plotly)
+
+```
+
+```{r WCWLB Datasets, warning=FALSE, message=FALSE, echo=FALSE}
+# Folders within WCWLB
+folders <- list.files(path = paste0(getwd(), "/WCWLB"))
+
+WCWLB <- tibble("Date/Time" = NA, "Value" = NA, "Unit" = NA, "Averaging Hour" = NA, Monitor = NA)%>%
+  as.data.frame()
+
+for (i in folders) {
+
+  filepath <- list.files(path = paste0(getwd(), "/WCWLB/", i))
+  for (j in filepath) {
+    WCWLB <- rbind(WCWLB,
+                   read_excel(paste0(getwd(), "/WCWLB/", i, "/", j), skip = 2)%>%
+                     mutate(Monitor = i))
+  }
+}
+
+WCWLB <- WCWLB%>%
+  filter(complete.cases(.))%>%
+  mutate(DateTime = as.POSIXct(`Date/Time`, format = "%m/%d/%Y %I:%M:%S %p", tz = Sys.timezone()),
+         Pollutants = ifelse(Unit == "counts/cm3", "Ultrafine Particles",
+                       ifelse(Unit == "ppb", "Hydrogen Sulfide",  "Black Carbon")),
+         Boundary = "WCWLB")%>%
+  select(Boundary, DateTime, Monitor, Value, Unit, Pollutants, `Averaging Hour`, `Date/Time`)%>%
+  mutate_at("Value", as.numeric)%>%
+  mutate(Value = round(Value, 2)) %>% 
+    separate(`Date/Time`, into = c("Date", "Hour", "Time"), sep = "\\s")%>%
+    mutate(Time = paste(Hour, Time, sep = " "),
+           Date = as.Date(Date, format = "%m/%d/%Y")) %>% 
+    select(-Hour)%>%
+  mutate(Source = "WCWLB")
+
+# write.csv(WCWLB, "WCWLB.csv", row.names = FALSE, na = "")
+
+```
+
+```{r SELA Dataset, warning=FALSE, message=FALSE, echo=FALSE}
+
+# Folders within SELA
+folders <- list.files(path = paste0(getwd(), "/SELA"))
+
+SELA <- tibble("Date/Time" = NA, "Value" = NA, "Unit" = NA, "Averaging Hour" = NA, Monitor = NA)%>%
+  as.data.frame()
+
+for (i in folders) {
+
+  filepath <- list.files(path = paste0(getwd(), "/SELA/", i))
+  for (j in filepath) {
+    SELA <- rbind(SELA,
+                   read_excel(paste0(getwd(), "/SELA/", i, "/", j), skip = 2)%>%
+                     mutate(Monitor = i))
+  }
+}
+
+SELA <- SELA%>%
+  filter(complete.cases(.))%>%
+  mutate(DateTime = as.POSIXct(`Date/Time`, format = "%m/%d/%Y %I:%M:%S %p", tz = Sys.timezone()),
+         Pollutants = ifelse(Unit == "counts/cm3", "Ultrafine Particles",
+                       ifelse(Unit == "ppb", "Hydrogen Sulfide",  "Black Carbon")),
+         Boundary = "SELA")%>%
+  select(Boundary, DateTime, Monitor, Value, Unit, Pollutants, `Averaging Hour`, `Date/Time`)%>%
+  mutate_at("Value", as.numeric)%>%
+  mutate(Value = round(Value, 2)) %>% 
+    separate(`Date/Time`, into = c("Date", "Hour", "Time"), sep = "\\s")%>%
+    mutate(Time = paste(Hour, Time, sep = " "),
+           Date = as.Date(Date, format = "%m/%d/%Y")) %>% 
+    select(-Hour)%>%
+  mutate(Source = "SELA")
+
+# write.csv(SELA, "SELA.csv", row.names = FALSE, na = "")
+
+```
+
+```{r ELABHWC Dataset, warning=FALSE, message=FALSE, echo=FALSE}
+
+# Folders within ELABHWC
+folders <- list.files(path = paste0(getwd(), "/ELABHWC"))
+
+ELABHWC <- tibble("Date/Time" = NA, "Value" = NA, "Unit" = NA, "Averaging Hour" = NA, Monitor = NA)%>%
+  as.data.frame()
+
+for (i in folders) {
+
+  filepath <- list.files(path = paste0(getwd(), "/ELABHWC/", i))
+  for (j in filepath) {
+    ELABHWC <- rbind(ELABHWC,
+                   read_excel(paste0(getwd(), "/ELABHWC/", i, "/", j), skip = 2)%>%
+                     mutate(Monitor = i))
+  }
+}
+
+ELABHWC <- ELABHWC%>%
+  filter(complete.cases(.))%>%
+  mutate(DateTime = as.POSIXct(`Date/Time`, format = "%m/%d/%Y %I:%M:%S %p", tz = Sys.timezone()),
+         Pollutants = ifelse(Unit == "counts/cm3", "Ultrafine Particles",
+                       ifelse(Unit == "ppb", "Hydrogen Sulfide",  "Black Carbon")),
+         Boundary = "WCWLB")%>%
+  select(Boundary, DateTime, Monitor, Value, Unit, Pollutants, `Averaging Hour`, `Date/Time`)%>%
+  mutate_at("Value", as.numeric)%>%
+  mutate(Value = round(Value, 2)) %>% 
+    separate(`Date/Time`, into = c("Date", "Hour", "Time"), sep = "\\s")%>%
+    mutate(Time = paste(Hour, Time, sep = " "),
+           Date = as.Date(Date, format = "%m/%d/%Y")) %>% 
+    select(-Hour)%>%
+  mutate(Source = "ELABHWC")
+
+# write.csv(ELABHWC, "ELABHWC.csv", row.names = FALSE, na = "")
+
+
+```
+
+```{r WCWLB Dashboards , warning=FALSE, message=FALSE, echo=FALSE}
+# data dashboards that feature more in the past, first link featured more in the present
+
+# WCWLB
+## 710
+filenames <- list.files(path = paste0(getwd(), "/Dashboard"),
+                        pattern = "710+.*csv")
+
+Dashboard_710 <- tibble("Hour of Date (LST)" = NA, "Pollutants" = NA, "Station" = NA, "Unit" = NA, "Avg. Value" = NA)%>%
+  as.data.frame()
+
+for (i in filenames) {
+  Dashboard_710 <- rbind(Dashboard_710,
+                         read_csv(paste0(getwd(), "/Dashboard/", i)))
+} 
+
+Dashboard_710$Station <- "710"
+
+Dashboard_710 <- Dashboard_710%>%
+  filter(complete.cases(.)) %>% 
+  mutate_at("Avg. Value", as.numeric) %>%
+  mutate("Avg. Value" = ifelse(Unit == "ng/m³", `Avg. Value` * 10^-3,
+                               ifelse(Unit == "Counts/cm³ x 1000", `Avg. Value` * 1000, `Avg. Value`)),
+         Unit = gsub("ng/m³", "μg/m3", Unit),
+         Unit = gsub("Counts/cm³ x 1000", "counts/cm3", Unit)) %>% 
+  rename("Date/Time" = `Hour of Date (LST)`, "Monitor"  = Station, "Value" = `Avg. Value`)%>%
+    mutate(`Date/Time` = as.POSIXct(`Date/Time`, format = "%B %d, %Y, %I %p"))%>%
+    separate(`Date/Time`, into = c("Date", "Time"), sep = "\\s", remove = FALSE)%>%
+    mutate(Date = as.Date(Date, format = "%Y-%m-%d"),
+           Time = gsub(":.*", "", Time)) %>% 
+    mutate_at("Time", as.numeric)%>%
+    mutate(Time = ifelse(Time > 11, paste(Time, "PM", sep = " "), paste(Time, "AM", sep = " ")))%>%
+    separate(Time, into = c("Hour", "Time"), sep = "\\s") %>% 
+    mutate_at("Hour", as.numeric)%>%
+    mutate(Hour = ifelse(Hour == 0, 12,
+                         ifelse(Hour > 12, Hour - 12, Hour)),
+           Hour = paste0(Hour, ":00:00 ", Time)) %>%
+    select(-Time)%>%
+  mutate(Value = round(Value, 2),
+         Source = "Dashboard",
+         DateTime = as.POSIXct(`Date/Time`, format = "%m/%d/%Y %I:%M:%S %p", tz = Sys.timezone()),
+         Pollutants = gsub("Black carbon", "Black Carbon", Pollutants),
+         Pollutants = gsub("Ultrafine particles", "Ultrafine Particles", Pollutants))%>%
+  select(-`Date/Time`) %>% 
+  rename("Time" = Hour)
+
+## Hudson
+filenames <- list.files(path = paste0(getwd(), "/Dashboard"),
+                        pattern = "Hudson_+.*csv")
+
+Dashboard_Hudson <- tibble("Hour of Date (LST)" = NA, "Pollutants" = NA, "Station" = NA, "Unit" = NA, "Avg. Value" = NA)%>%
+  as.data.frame()
+
+for (i in filenames) {
+  Dashboard_Hudson <- rbind(Dashboard_Hudson,
+                         read_csv(paste0(getwd(), "/Dashboard/", i)))
+} 
+
+Dashboard_Hudson$Station <- "Hudson"
+
+Dashboard_Hudson <- Dashboard_Hudson%>%
+  filter(complete.cases(.)) %>% 
+  mutate_at("Avg. Value", as.numeric) %>%
+  mutate("Avg. Value" = ifelse(Unit == "ng/m³", `Avg. Value` * 10^-3,
+                               ifelse(Unit == "Counts/cm³ x 1000", `Avg. Value` * 1000, `Avg. Value`)),
+         Unit = gsub("ng/m³", "μg/m3", Unit),
+         Unit = gsub("Counts/cm³ x 1000", "counts/cm3", Unit)) %>% 
+  rename("Date/Time" = `Hour of Date (LST)`, "Monitor"  = Station, "Value" = `Avg. Value`)%>%
+    mutate(`Date/Time` = as.POSIXct(`Date/Time`, format = "%B %d, %Y, %I %p"))%>%
+    separate(`Date/Time`, into = c("Date", "Time"), sep = "\\s", remove = FALSE)%>%
+    mutate(Date = as.Date(Date, format = "%Y-%m-%d"),
+           Time = gsub(":.*", "", Time)) %>% 
+    mutate_at("Time", as.numeric)%>%
+    mutate(Time = ifelse(Time > 11, paste(Time, "PM", sep = " "), paste(Time, "AM", sep = " ")))%>%
+    separate(Time, into = c("Hour", "Time"), sep = "\\s") %>% 
+    mutate_at("Hour", as.numeric)%>%
+    mutate(Hour = ifelse(Hour == 0, 12,
+                         ifelse(Hour > 12, Hour - 12, Hour)),
+           Hour = paste0(Hour, ":00:00 ", Time)) %>%
+    select(-Time)%>%
+  mutate(Value = round(Value, 2),
+         Source = "Dashboard",
+         DateTime = as.POSIXct(`Date/Time`, format = "%m/%d/%Y %I:%M:%S %p", tz = Sys.timezone()),
+         Pollutants = gsub("Black carbon", "Black Carbon", Pollutants),
+         Pollutants = gsub("Ultrafine particles", "Ultrafine Particles", Pollutants),
+         Pollutants = gsub("Hydrogen sulfide", "Hydrogen Sulfide", Pollutants))%>%
+  select(-`Date/Time`) %>% 
+  rename("Time" = Hour)
+
+```
+
+```{r ELABHWC Dashboards, warning=FALSE, message=FALSE, echo=FALSE}
+# ELABHWC
+
+## Central LA
+filenames <- list.files(path = paste0(getwd(), "/Dashboard"),
+                        pattern = "CentralLA+.*csv")
+
+Dashboard_CentralLA <- tibble("Hour of Date (LST)" = NA, "Pollutants" = NA, "Station" = NA,
+                              "Unit" = NA, "Avg. Value" = NA)%>%
+  as.data.frame()
+
+for (i in filenames) {
+  Dashboard_CentralLA <- rbind(Dashboard_CentralLA,
+                         read_csv(paste0(getwd(), "/Dashboard/", i)))
+} 
+
+Dashboard_CentralLA$Station <- "CentralLA"
+
+Dashboard_CentralLA <- Dashboard_CentralLA%>%
+  filter(complete.cases(.)) %>% 
+  mutate_at("Avg. Value", as.numeric) %>%
+  mutate("Avg. Value" = ifelse(Unit == "ng/m³", `Avg. Value` * 10^-3,
+                               ifelse(Unit == "Counts/cm³ x 1000", `Avg. Value` * 1000, `Avg. Value`)),
+         Unit = gsub("ng/m³", "μg/m3", Unit),
+         Unit = gsub("Counts/cm³ x 1000", "counts/cm3", Unit)) %>% 
+  rename("Date/Time" = `Hour of Date (LST)`, "Monitor"  = Station, "Value" = `Avg. Value`)%>%
+    mutate(`Date/Time` = as.POSIXct(`Date/Time`, format = "%B %d, %Y, %I %p"))%>%
+    separate(`Date/Time`, into = c("Date", "Time"), sep = "\\s", remove = FALSE)%>%
+    mutate(Date = as.Date(Date, format = "%Y-%m-%d"),
+           Time = gsub(":.*", "", Time)) %>% 
+    mutate_at("Time", as.numeric)%>%
+    mutate(Time = ifelse(Time > 11, paste(Time, "PM", sep = " "), paste(Time, "AM", sep = " ")))%>%
+    separate(Time, into = c("Hour", "Time"), sep = "\\s") %>% 
+    mutate_at("Hour", as.numeric)%>%
+    mutate(Hour = ifelse(Hour == 0, 12,
+                         ifelse(Hour > 12, Hour - 12, Hour)),
+           Hour = paste0(Hour, ":00:00 ", Time)) %>%
+    select(-Time)%>%
+  mutate(Value = round(Value, 2),
+         Source = "Dashboard",
+         DateTime = as.POSIXct(`Date/Time`, format = "%m/%d/%Y %I:%M:%S %p", tz = Sys.timezone()),
+         Pollutants = gsub("Black carbon", "Black Carbon", Pollutants),
+         Pollutants = gsub("Ultrafine particles", "Ultrafine Particles", Pollutants))%>%
+  select(-`Date/Time`) %>% 
+  rename("Time" = Hour)
+
+## Resurrection Church
+filenames <- list.files(path = paste0(getwd(), "/Dashboard"),
+                        pattern = "ResurrectionChurch_+.*csv")
+
+Dashboard_ResurrectionChurch <- tibble("Hour of Date (LST)" = NA, "Pollutants" = NA, "Station" = NA,
+                              "Unit" = NA, "Avg. Value" = NA)%>%
+  as.data.frame()
+
+for (i in filenames) {
+  Dashboard_ResurrectionChurch <- rbind(Dashboard_ResurrectionChurch,
+                         read_csv(paste0(getwd(), "/Dashboard/", i)))
+} 
+
+Dashboard_ResurrectionChurch$Station <- "ResurrectionChurch"
+
+Dashboard_ResurrectionChurch <- Dashboard_ResurrectionChurch%>%
+  filter(complete.cases(.)) %>% 
+  mutate_at("Avg. Value", as.numeric) %>%
+  mutate("Avg. Value" = ifelse(Unit == "ng/m³", `Avg. Value` * 10^-3,
+                               ifelse(Unit == "Counts/cm³ x 1000", `Avg. Value` * 1000, `Avg. Value`)),
+         Unit = gsub("ng/m³", "μg/m3", Unit),
+         Unit = gsub("Counts/cm³ x 1000", "counts/cm3", Unit)) %>% 
+  rename("Date/Time" = `Hour of Date (LST)`, "Monitor"  = Station, "Value" = `Avg. Value`)%>%
+    mutate(`Date/Time` = as.POSIXct(`Date/Time`, format = "%B %d, %Y, %I %p"))%>%
+    separate(`Date/Time`, into = c("Date", "Time"), sep = "\\s", remove = FALSE)%>%
+    mutate(Date = as.Date(Date, format = "%Y-%m-%d"),
+           Time = gsub(":.*", "", Time)) %>% 
+    mutate_at("Time", as.numeric)%>%
+    mutate(Time = ifelse(Time > 11, paste(Time, "PM", sep = " "), paste(Time, "AM", sep = " ")))%>%
+    separate(Time, into = c("Hour", "Time"), sep = "\\s") %>% 
+    mutate_at("Hour", as.numeric)%>%
+    mutate(Hour = ifelse(Hour == 0, 12,
+                         ifelse(Hour > 12, Hour - 12, Hour)),
+           Hour = paste0(Hour, ":00:00 ", Time)) %>%
+    select(-Time)%>%
+  mutate(Value = round(Value, 2),
+         Source = "Dashboard",
+         DateTime = as.POSIXct(`Date/Time`, format = "%m/%d/%Y %I:%M:%S %p", tz = Sys.timezone()),
+         Pollutants = gsub("Black carbon", "Black Carbon", Pollutants),
+         Pollutants = gsub("Ultrafine particles", "Ultrafine Particles", Pollutants),
+         Pollutants = gsub("Hydrogen sulfide", "Hydrogen Sulfide", Pollutants))%>%
+  select(-`Date/Time`) %>% 
+  rename("Time" = Hour)
+
+
+```
+
+```{r Sources Merged, warning=FALSE, message=FALSE, echo=FALSE}
+# WCWLB and Dashboard sources merged
+ merged_710 <- rbind(Dashboard_710 %>% 
+          select(-Unit),
+      WCWLB%>%
+          select(-c(Boundary, Unit, `Averaging Hour`)))%>%
+    arrange(Date, Time) %>%
+    mutate(dups = duplicated(across(-Source)))%>%
+    filter(dups != TRUE)%>%
+    select(-dups)
+
+Hudson_merged <- rbind(Dashboard_Hudson %>% 
+          select(-Unit),
+      WCWLB%>%
+          select(-c(Boundary, Unit, `Averaging Hour`)))%>%
+    arrange(Date, Time) %>%
+    mutate(dups = duplicated(across(-Source))) %>% 
+    filter(dups != TRUE) %>% 
+    select(-dups)
+
+WCWLB_merged <- rbind(merged_710, Hudson_merged) %>% 
+    mutate(dups = duplicated(.)) %>% 
+    arrange(Date, Time) %>%
+    filter(dups != TRUE) %>% 
+    select(-dups)
+
+# write.csv(WCWLB_merged, "WCWLB_merged.csv", row.names = FALSE)
+
+##
+CentralLA_merged <- rbind(Dashboard_CentralLA %>% 
+          select(-Unit),
+      ELABHWC%>%
+          select(-c(Boundary, Unit, `Averaging Hour`)))%>%
+    arrange(Date, Time) %>%
+    mutate(dups = duplicated(across(-Source)))%>%
+    filter(dups != TRUE) %>%
+    select(-dups)
+
+ResurrectionChurch_merged <- rbind(Dashboard_ResurrectionChurch %>% 
+          select(-Unit),
+      ELABHWC%>%
+          select(-c(Boundary, Unit, `Averaging Hour`)))%>%
+    arrange(Date, Time) %>%
+    mutate(dups = duplicated(across(-Source))) %>% 
+    filter(dups != TRUE) %>% 
+    select(-dups)
+
+ELABHWC_merged <- rbind(CentralLA_merged, ResurrectionChurch_merged) %>% 
+    mutate(dups = duplicated(.)) %>% 
+    arrange(Date, Time) %>% 
+    filter(dups != TRUE) %>% 
+    select(-dups)
+
+# write.csv(ELABHWC_merged, "ELABHWC_merged.csv", row.names = FALSE)
+
+```
+
+```{r Air Monitor Geocodes, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+AirMonitors <- read_excel("AirMonitors.xlsx")
+
+WCWLB_merged <- merge(WCWLB_merged, AirMonitors %>% 
+          select(-Boundary))
+# write.csv(WCWLB_merged, "WCWLB_merged.csv", row.names = FALSE)
+
+SELA <- merge(SELA, AirMonitors %>% 
+                select(-Boundary))
+# write.csv(SELA, "SELA.csv", row.names = FALSE)
+
+ELABHWC_merged <- merge(ELABHWC_merged, AirMonitors %>% 
+                          select(-Boundary))
+# write.csv(ELABHWC_merged, "ELABHWC_merged.csv", row.names = FALSE)
+
+```
+
+## WCWLB  Black Carbon Plots {.tabset}
+
+### Hourly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+# Hourly Averages
+ggplotly(WCWLB_merged %>% 
+             filter(Pollutants == "Black Carbon") %>% 
+             ggplot(aes(x = DateTime, y = Value, group = Monitor, color = Monitor))+ 
+             geom_line()+
+             labs(x = "Date", y = "Concentration", title = "WCWLB Hourly Averages for Black Carbon")+
+             theme(plot.title = element_text(hjust = 0.5)))
+
+# Comparison between monitors
+# ggplotly(WCWLB_merged %>% 
+#     filter(Pollutants == "Black Carbon") %>% 
+#     ggplot(aes(x = Monitor, y = Value, color = Monitor))+
+#     geom_boxplot()+
+#     coord_flip()+
+#     labs(x = "", title = "Hourly Averages Between Monitors")+
+#     theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Daily Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+# Daily Averages
+ggplotly(WCWLB_merged %>% 
+    filter(Pollutants == "Black Carbon") %>% 
+    group_by(Monitor, Date) %>% 
+    summarize(Avg = mean(Value)) %>% 
+    arrange(Date, .by_group = TRUE) %>%
+    ggplot(aes(x = Date, y = Avg, color = Monitor))+
+    geom_line()+
+    ggtitle("WCWLB Day Averages for Black Carbon")+
+    theme(plot.title = element_text(hjust = 0.5)))
+
+# Comparison between monitors
+# ggplotly(WCWLB_merged %>% 
+#     filter(Pollutants == "Black Carbon") %>% 
+#     group_by(Monitor, Date) %>% 
+#     summarize(Avg = mean(Value)) %>% 
+#     arrange(Date, .by_group = TRUE) %>%
+#     ggplot(aes(x = Monitor, y = Avg, color = Monitor))+
+#     geom_boxplot()+
+#     labs(x = "", title = "Daily Averages Between Monitors")+
+#     coord_flip()+
+#     theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Monthly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+# Monthly Averages
+ggplotly(WCWLB_merged %>% 
+    filter(Pollutants == "Black Carbon") %>%
+    mutate(Year = year(Date), Month = month(Date)) %>% 
+    mutate(DateTime = my(paste0(Month, '/', Year))) %>% 
+    group_by(Monitor, DateTime) %>% 
+    summarize(Avg = mean(Value, na.rm = TRUE)) %>%
+    ggplot(aes(x = DateTime, y = Avg, color = Monitor))+
+    geom_line()+
+    labs(title = "WCWLB Monthly Averages for Black Carbon")+
+    theme(plot.title = element_text(hjust = 0.5)))
+
+# Comparison between monitors
+# ggplotly(WCWLB_merged %>% 
+#     filter(Pollutants == "Black Carbon") %>%
+#     mutate(Year = year(Date), Month = month(Date)) %>% 
+#     mutate(DateTime = my(paste0(Month, '/', Year))) %>% 
+#     group_by(Monitor, DateTime) %>% 
+#     summarize(Avg = mean(Value, na.rm = TRUE)) %>%
+#     ggplot(aes(x = Monitor, y = Avg, color = Monitor))+
+#     geom_boxplot()+
+#     labs(title = "Monthly Averages Between Monitors")+
+#     theme(plot.title = element_text(hjust = 0.5)))
+
+```
+
+## {-}
+
+## WCWLB Ultrafine Particle Plots {.tabset}
+
+### Hourly Averages
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# Hourly averages
+ggplotly(WCWLB_merged %>% 
+    filter(Pollutants == "Ultrafine Particles") %>% 
+    ggplot(aes(x = DateTime, y = Value, color = Monitor))+
+    geom_line()+
+    labs(x = "Date", title = "WCWLB Hourly Averages for Ultrafine Particles")+
+    theme(plot.title = element_text(hjust = 0.5)))
+
+# Comparison between
+# ggplotly(WCWLB_merged %>% 
+#     filter(Pollutants == "Ultrafine Particles") %>% 
+#     ggplot(aes(x = Monitor, y = Value, color = Monitor))+
+#     geom_boxplot()+
+#     labs(title = "Hourly Averages Between Monitors")+
+#     theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Daily Averages
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# Daily Averages
+ggplotly(WCWLB_merged %>% 
+             filter(Pollutants == "Ultrafine Particles") %>% 
+             group_by(Monitor, Date) %>% 
+             summarize(Avg = mean(Value, na.rm = TRUE)) %>% 
+             arrange(Date, .by_group = TRUE) %>%
+             ggplot(aes(x = Date, y = Avg, color = Monitor))+
+             geom_line()+
+            scale_y_continuous(labels = function(x) format(x, scientific = TRUE))+
+             ggtitle("WCWLB Day Averages for Ultrafine Particles")+
+             theme(plot.title = element_text(hjust = 0.5)))
+
+# comparison between
+# WCWLB_merged %>% 
+#              filter(Pollutants == "Ultrafine Particles") %>% 
+#              group_by(Monitor, Date) %>% 
+#              summarize(Avg = mean(Value, na.rm = TRUE)) %>% 
+#              arrange(Date, .by_group = TRUE) %>%
+#              ggplot(aes(x = Monitor, y = Avg, color = Monitor))+
+#              geom_boxplot()+
+#             scale_y_continuous(labels = function(x) format(x, scientific = TRUE))+
+#              ggtitle("Day Averages Between Monitors")+
+#              theme(plot.title = element_text(hjust = 0.5))
+```
+
+### Monthly Averages
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# Monthly Averages
+ggplotly(WCWLB_merged %>% 
+             filter(Pollutants == "Ultrafine Particles") %>%
+             mutate(Year = year(Date), Month = month(Date)) %>% 
+             mutate(DateTime = my(paste0(Month, '/', Year))) %>% 
+             group_by(Monitor, DateTime) %>% 
+             summarize(Avg = mean(Value, na.rm = TRUE)) %>%
+             ggplot(aes(x = DateTime, y = Avg, color = Monitor))+
+             geom_line()+
+             scale_y_continuous(labels = function(x) format(x, scientific = TRUE))+
+             labs(title = "WCWLB Monthly Averages for Ultrafine Particles")+
+             theme(plot.title = element_text(hjust = 0.5)))
+
+# Comparison between
+# ggplotly(WCWLB_merged %>% 
+#              filter(Pollutants == "Ultrafine Particles") %>%
+#              mutate(Year = year(Date), Month = month(Date)) %>% 
+#              mutate(DateTime = my(paste0(Month, '/', Year))) %>% 
+#              group_by(Monitor, DateTime) %>% 
+#              summarize(Avg = mean(Value, na.rm = TRUE)) %>%
+#              ggplot(aes(x = Monitor, y = Avg, color = Monitor))+
+#              geom_boxplot()+
+#              labs(title = "Monthly Averages Between Monitors")+
+#              theme(plot.title = element_text(hjust = 0.5)))
+
+```
+
+## {-}
+
+## ELABHWC Plots {.tabset}
+
+### Hourly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+# Hourly averages
+ggplotly(ELABHWC_merged %>% 
+    filter(Pollutants == "Black Carbon") %>% 
+    ggplot(aes(x = DateTime, y = Value, color = Monitor))+
+    geom_line()+
+    labs(x = "Date", title = "ELABHWC Hourly Averages for Black Carbon")+
+    theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Daily Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+# Daily Averages
+ggplotly(ELABHWC_merged %>% 
+    filter(Pollutants == "Black Carbon") %>% 
+    group_by(Monitor, Date) %>% 
+    summarize(Avg = mean(Value), na.rm = TRUE) %>% 
+    arrange(Date, .by_group = TRUE) %>% 
+    ggplot(aes(x = Date, y = Avg, color = Monitor))+
+    geom_line()+
+    labs(x = "Date", title = "ELABHWC Daily Averages for Black Carbon")+
+    theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Monthly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+# Monthly Averages
+ggplotly(ELABHWC_merged %>% 
+             filter(Pollutants == "Black Carbon") %>%
+             mutate(Year = year(Date), Month = month(Date)) %>% 
+             mutate(DateTime = my(paste0(Month, '/', Year))) %>% 
+             group_by(Monitor, DateTime) %>% 
+             summarize(Avg = mean(Value, na.rm = TRUE)) %>%
+             ggplot(aes(x = DateTime, y = Avg, color = Monitor))+
+             geom_line()+
+             labs(title = "ELABHWC Monthly Averages for Black Carbon")+
+             theme(plot.title = element_text(hjust = 0.5)))
+
+```
+
+## {-}
+
+## ELABHWC Ultrafine Particle Plots {.tabset}
+
+### Hourly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ggplotly(ELABHWC_merged %>% 
+             filter(Pollutants == "Ultrafine Particles") %>% 
+             ggplot(aes(x = DateTime, y = Value, color = Monitor))+
+             geom_line()+
+             scale_y_continuous(labels = function(x) format(x, scientific = TRUE))+
+             labs(x = "Date", title = "ELABHWC Hourly Averages for Ultrafine Particles")+
+             theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Daily Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ggplotly(ELABHWC_merged %>% 
+             filter(Pollutants == "Ultrafine Particles") %>% 
+             group_by(Monitor, Date) %>% 
+             summarize(Avg = mean(Value), na.rm = TRUE) %>% 
+             arrange(Date, .by_group = TRUE) %>% 
+             ggplot(aes(x = Date, y = Avg, color = Monitor))+
+             geom_line()+
+             scale_y_continuous(labels = function(x) format(x, scientific = TRUE))+
+             labs(x = "Date", title = "ELABHWC Daily Averages for Ultrafine Particles.")+
+             theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Monthly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ggplotly(ELABHWC_merged %>% 
+             filter(Pollutants == "Ultrafine Particles") %>%
+             mutate(Year = year(Date), Month = month(Date)) %>% 
+             mutate(DateTime = my(paste0(Month, '/', Year))) %>% 
+             group_by(Monitor, DateTime) %>% 
+             summarize(Avg = mean(Value, na.rm = TRUE)) %>%
+             ggplot(aes(x = DateTime, y = Avg, color = Monitor))+
+             geom_line()+
+             scale_y_continuous(labels = function(x) format(x, scientific = TRUE))+
+             labs(title = "ELABHWC Monthly Averages for Ultrafine Particles")+
+             theme(plot.title = element_text(hjust = 0.5)))
+```
+
+## {-}
+
+## SELA Black Carbon Plots {.tabset}
+
+### Hourly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ggplotly(SELA %>% 
+    filter(Pollutants == "Black Carbon") %>% 
+    ggplot(aes(x = DateTime, y = Value, color = Monitor))+
+    geom_line()+
+    labs(x = "Date", title = "SELA Hourly Averages for Black Carbon")+
+    theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Daily Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ggplotly(SELA %>% 
+             filter(Pollutants == "Black Carbon") %>% 
+             group_by(Monitor, Date) %>% 
+             summarize(Avg = mean(Value), na.rm = TRUE) %>% 
+             arrange(Date, .by_group = TRUE) %>% 
+             ggplot(aes(x = Date, y = Avg, color = Monitor))+
+             geom_line()+
+             labs(x = "Date", title = "SELA Daily Averages for Black Carbon")+
+             theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Montly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ggplotly(SELA %>% 
+             filter(Pollutants == "Black Carbon") %>%
+             mutate(Year = year(Date), Month = month(Date)) %>% 
+             mutate(DateTime = my(paste0(Month, '/', Year))) %>% 
+             group_by(Monitor, DateTime) %>% 
+             summarize(Avg = mean(Value, na.rm = TRUE)) %>%
+             ggplot(aes(x = DateTime, y = Avg, color = Monitor))+
+             geom_line()+
+             labs(title = "ELABHWC Monthly Averages for Black Carbon")+
+             theme(plot.title = element_text(hjust = 0.5)))
+```
+
+## {-}
+
+## SELA Ultrafine Particle Plots {.tabset}
+
+### Hourly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ggplotly(SELA %>% 
+             filter(Pollutants == "Ultrafine Particles") %>% 
+             ggplot(aes(x = DateTime, y = Value, color = Monitor))+
+             geom_line()+
+             scale_y_continuous(labels = function(x) format(x, scientific = TRUE))+
+             labs(x = "Date", title = "SELA Hourly Averages for Ultrafine Particles")+
+             theme(plot.title = element_text(hjust = 0.5)))
+```
+
+
+### Daily Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ggplotly(SELA %>% 
+             filter(Pollutants == "Ultrafine Particles") %>% 
+             group_by(Monitor, Date) %>% 
+             summarize(Avg = mean(Value), na.rm = TRUE) %>% 
+             arrange(Date, .by_group = TRUE) %>% 
+             ggplot(aes(x = Date, y = Avg, color = Monitor))+
+             geom_line()+
+             scale_y_continuous(labels = function(x) format(x, scientific = TRUE))+
+             labs(x = "Date", title = "SELA Daily Averages for Ultrafine Particles")+
+             theme(plot.title = element_text(hjust = 0.5)))
+```
+
+### Monthly Averages
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+ggplotly(SELA %>% 
+             filter(Pollutants == "Ultrafine Particles") %>%
+             mutate(Year = year(Date), Month = month(Date)) %>% 
+             mutate(DateTime = my(paste0(Month, '/', Year))) %>% 
+             group_by(Monitor, DateTime) %>% 
+             summarize(Avg = mean(Value, na.rm = TRUE)) %>%
+             ggplot(aes(x = DateTime, y = Avg, color = Monitor))+
+             geom_line()+
+            scale_y_continuous(labels = function(x) format(x, scientific = TRUE))+
+            labs(title = "ELABHWC Monthly Averages for Ultrafine Particles")+
+             theme(plot.title = element_text(hjust = 0.5)))
+```
+
+## {-}
