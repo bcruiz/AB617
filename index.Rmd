@@ -10,6 +10,10 @@ library(readxl)
 library(lubridate)
 library(plotly)
 library(scales)
+library(leaflet)
+library(sp)
+library(sf)
+library(rgdal)
 
 ```
 
@@ -365,22 +369,64 @@ ELABHWC_merged <- rbind(CentralLA_merged, ResurrectionChurch_merged) %>%
 
 ```
 
-```{r Air Monitor Geocodes, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+```{r Air Monitor Geocodes, warning=FALSE, message=FALSE, echo=FALSE}
 AirMonitors <- read_excel("AirMonitors.xlsx")
 
-WCWLB_merged <- merge(WCWLB_merged, AirMonitors %>% 
-          select(-Boundary))
-# write.csv(WCWLB_merged, "WCWLB_merged.csv", row.names = FALSE)
-
-SELA <- merge(SELA, AirMonitors %>% 
-                select(-Boundary))
-# write.csv(SELA, "SELA.csv", row.names = FALSE)
-
-ELABHWC_merged <- merge(ELABHWC_merged, AirMonitors %>% 
-                          select(-Boundary))
-# write.csv(ELABHWC_merged, "ELABHWC_merged.csv", row.names = FALSE)
+# WCWLB_merged <- merge(WCWLB_merged, AirMonitors %>% 
+#           select(-Boundary))
+# # write.csv(WCWLB_merged, "WCWLB_merged.csv", row.names = FALSE)
+# 
+# SELA <- merge(SELA, AirMonitors %>% 
+#                 select(-Boundary))
+# # write.csv(SELA, "SELA.csv", row.names = FALSE)
+# 
+# ELABHWC_merged <- merge(ELABHWC_merged, AirMonitors %>% 
+#                           select(-Boundary))
+# # write.csv(ELABHWC_merged, "ELABHWC_merged.csv", row.names = FALSE)
 
 ```
+
+## AB 617 Air Monitors
+```{r AB617 Map, echo=FALSE, message=FALSE, warning=FALSE}
+# AirMonitors <- read_excel("AirMonitors.xlsx")
+
+AirMonitors <- AirMonitors %>% 
+  mutate(Group = ifelse(Boundary == "WCWLB", "green",
+                        ifelse(Boundary == "SELA", "orange", "red")))
+
+markers <- awesomeIcons(
+  icon = 'ios-close',
+  iconColor = 'black',
+  library = 'ion',
+  markerColor = AirMonitors$Group
+)
+
+ELABHWC_shp <- readOGR(paste0(getwd(), "/AB617 Air Monitors/shp/ELABHWC.shp"), verbose = FALSE)
+ELABHWC_shp <- spTransform(ELABHWC_shp, CRS("+proj=longlat +datum=WGS84 +no_defs"))
+
+WCWLB_shp <- readOGR(paste0(getwd(), "/AB617 Air Monitors/shp/WCWLB.shp"), verbose = FALSE)
+WCWLB_shp <- spTransform(WCWLB_shp, CRS("+proj=longlat +datum=WGS84 +no_defs"))
+
+SELA_shp <- readOGR(paste0(getwd(), "/AB617 Air Monitors/shp/SELA.shp"), verbose = FALSE)
+SELA_shp <- spTransform(SELA_shp, CRS("+proj=longlat +datum=WGS84 +no_defs"))
+
+
+leaflet(AirMonitors) %>%
+  addTiles() %>%
+  addAwesomeMarkers(lng = ~Lon, lat= ~Lat, icon=~markers, label=~as.character(Monitor)) %>% 
+  addPolygons(data=ELABHWC_shp,weight=5,col = 'grey50',
+              popup = ~as.character("East Los Angeles, Boyle Heights, West Commerce"),
+              label = ~~as.character("East Los Angeles, Boyle Heights, West Commerce"))%>% 
+  addPolygons(data=WCWLB_shp,weight=5,col = 'grey50',
+              popup = ~as.character("Wilmington Carson West Long Beach"),
+              label = ~as.character("Wilmington Carson West Long Beach"))%>% 
+  addPolygons(data=SELA_shp,weight=5,col = 'grey50',
+              popup = ~as.character("Southeast Los Angeles (SELA) Emission Boundary"),
+              label = ~as.character("Southeast Los Angeles (SELA) Emission Boundary"))
+
+```
+
+<br>
 
 ## WCWLB  Black Carbon Plots {.tabset}
 
@@ -768,3 +814,4 @@ ggplotly(SELA %>%
 ```
 
 ## {-}
+
