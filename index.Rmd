@@ -416,13 +416,15 @@ leaflet(AirMonitors) %>%
   addAwesomeMarkers(lng = ~Lon, lat= ~Lat, icon=~markers, label=~as.character(Monitor)) %>% 
   addPolygons(data=ELABHWC_shp,weight=5,col = 'grey50',
               popup = ~as.character("East Los Angeles, Boyle Heights, West Commerce"),
-              label = ~~as.character("East Los Angeles, Boyle Heights, West Commerce"))%>% 
+              label = ~as.character("East Los Angeles, Boyle Heights, West Commerce"))%>% 
   addPolygons(data=WCWLB_shp,weight=5,col = 'grey50',
               popup = ~as.character("Wilmington Carson West Long Beach"),
               label = ~as.character("Wilmington Carson West Long Beach"))%>% 
   addPolygons(data=SELA_shp,weight=5,col = 'grey50',
               popup = ~as.character("Southeast Los Angeles (SELA) Emission Boundary"),
-              label = ~as.character("Southeast Los Angeles (SELA) Emission Boundary"))
+              label = ~as.character("Southeast Los Angeles (SELA) Emission Boundary")) %>% 
+  addLegend(position = "bottomleft", colors = c("red", "orange", "green", "grey"),
+            labels = c("ELABHWC", "SELA", "WCWLB", "Boundaries"), opacity = 0.8)
 
 ```
 
